@@ -32,22 +32,4 @@ public class MemoryClassLoader extends ClassLoader {
         //resolveClass(clazz);
         return clazz;
     }
-
-//    /**
-//     * Load class from compiled classes.
-//     *
-//     * @param name
-//     *            Full class name.
-//     * @param classBytes
-//     *            Compiled results as a Map.
-//     * @return The Class instance.
-//     * @throws ClassNotFoundException
-//     *             If class not found.
-//     * @throws IOException
-//     *             If load error.
-//     */
-//    public Class<?> loadClass(String name, Map<String, byte[]> classBytes, ClassLoader parentClassLoader) throws ClassNotFoundException, IOException {
-//
-//        return findClass(name);
-//    }
 }
