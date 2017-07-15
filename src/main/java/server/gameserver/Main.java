@@ -1,15 +1,10 @@
 package server.gameserver;
 
-import static consts.ServerSettings.scriptDirectory;
-
-import script.IScript;
+import consts.ServerSettings;
 import script.compiler.JavaStringCompiler;
 import script.scripts.ScriptManager;
 import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
 
 
 /**
@@ -39,7 +34,7 @@ public class Main {
 //    ScheduledExecutorService service = Executors.newSingleThreadScheduledExecutor();
 
     JavaStringCompiler compiler = new JavaStringCompiler();
-    ScriptManager.getInstance().reloadScript(scriptDirectory, compiler);
+    ScriptManager.getInstance().reloadScript(ServerSettings.scriptDirectory, compiler);
     new GameServer().run();
 
 //    new Thread(() -> {

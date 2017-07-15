@@ -1,5 +1,7 @@
 package server.gateway;
 
+import codec.MsgPackDecoder;
+import codec.MsgPackEncoder;
 import consts.ServerSettings;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -18,6 +20,7 @@ import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import io.netty.handler.timeout.IdleStateHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import server.ServerBean;
@@ -33,42 +36,41 @@ public class GatewayServer {
 
     private ServerBean serverBean;
 
-    private  Channel clientGateWayChannel = null;
+    private Channel clientGateWayChannel = null;
     private Channel gateWayServerChannel = null;
 
 
-    private ExecutorService service = new ThreadPoolExecutor(2, 2, 60, TimeUnit.SECONDS,
+    public static ExecutorService gatewayexecutorpool = new ThreadPoolExecutor(2, 2, 60, TimeUnit.SECONDS,
             new LinkedBlockingQueue<>(), new ThreadFactory() {
         @Override
         public Thread newThread(Runnable r) {
             Thread t = new Thread(r);
-            loggger.debug("Created thread %d with name %s on %s\n", t.getId(), t.getName(),
-                    this.getClass().getName());
+            loggger.info("start thread with name {} on {}", t.getId(), t.getName());
             return t;
         }
     });
 
     public void start() {
-        service.execute(
+        gatewayexecutorpool.execute(
                 () -> {
-                    startServerBind(ServerSettings.getProperty("gatewayInternalIp"),
-                            Integer.parseInt(ServerSettings.getProperty("gatewayInternalPort")));
+                    startServerBind();
                 });
 
-        service.execute(
+        gatewayexecutorpool.execute(
                 () -> {
-                    startClientListener(ServerSettings.getProperty("gatewayExternalIp"),
-                            Integer.parseInt(ServerSettings.getProperty("gatewayExternalPort")));
+                    startClientListener();
                 }
         );
     }
 
-    private void startServerBind(String ip, int port) {
+    void startServerBind() {
+        String ip = ServerSettings.getInstance().getProperty("gatewayInternalIp");
+        int port = Integer.parseInt(ServerSettings.getInstance().getProperty("gatewayInternalPort"));
         NioEventLoopGroup bossGroup = new NioEventLoopGroup(1);
         NioEventLoopGroup workerGroup = new NioEventLoopGroup(1);
 
         //fixme: hard code
-        serverBean = new ServerBean(1, ServerType.GateWayServer, "gs-" + serverBean.getServerUniqueId(),
+        serverBean = new ServerBean(1, ServerType.GateWayServer, "gateway-1",
                 ServerStatus.Inavtive, ip, port);
         try {
             ServerBootstrap b = new ServerBootstrap();
@@ -81,14 +83,17 @@ public class GatewayServer {
                         public void initChannel(SocketChannel ch) throws Exception {
                             ch.pipeline().addLast(
                                     new LoggingHandler(LogLevel.INFO),
+                                    new IdleStateHandler(8, 0, 0),
+                                    new MsgPackDecoder(),
+                                    new MsgPackEncoder(),
                                     new GatewayInternalServerMessageHandler());
                         }
                     });
             ChannelFuture gateWayServerChannel = b.bind(port).sync();
             serverBean.setServerStatus(ServerStatus.Active);
             serverBean.store();
-            gateWayServerChannel.channel().closeFuture().sync().addListener((e)->{
-                if(e.isSuccess()){
+            gateWayServerChannel.channel().closeFuture().sync().addListener((e) -> {
+                if (e.isSuccess()) {
                     serverBean.setServerStatus(ServerStatus.Inavtive);
                     serverBean.store();
                 }
@@ -101,8 +106,9 @@ public class GatewayServer {
         }
     }
 
-
-    private void startClientListener(String ip, int port) {
+    void startClientListener() {
+        String ip = ServerSettings.getInstance().getProperty("gatewayExternalIp");
+        int port  = Integer.parseInt(ServerSettings.getInstance().getProperty("gatewayExternalPort"));
         NioEventLoopGroup bossGroup = new NioEventLoopGroup();
         NioEventLoopGroup workerGroup = new NioEventLoopGroup();
         try {
@@ -115,7 +121,7 @@ public class GatewayServer {
                         @Override
                         public void initChannel(SocketChannel ch) throws Exception {
                             ch.pipeline().addLast(
-                                    //new LoggingHandler(LogLevel.INFO),
+                                    new LoggingHandler(LogLevel.INFO),
                                     new ClientRequestHandler()); //处理客户端的连接请求
                         }
                     });
@@ -129,7 +135,7 @@ public class GatewayServer {
         }
     }
 
-    public void close(){
+    public void close() {
         this.clientGateWayChannel.close();
         this.gateWayServerChannel.close();
     }

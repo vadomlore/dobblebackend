@@ -11,26 +11,48 @@ import java.util.Properties;
  */
 public class ServerSettings {
 
-  public static Properties _prop = new Properties();
+  private static ServerSettings settings;
 
-  public static final String SERVER_SETTINGS_FILE_PATH = "serversetttings.properties";
+  public final static String scriptDirectory = System.getProperty("user.dir") + "/src/main/java/script/callablescript";
 
-  public static void readProperies(String fileName) {
+  public String getProperty(String key){
+    return _prop.getProperty(key);
+  }
+
+  private ServerSettings(){
+    readProperies(SERVER_SETTINGS_FILE_PATH);
+  }
+
+  private enum Singleton {
+
+    INSTANCE;
+
+    Singleton() {
+      settings = new ServerSettings();
+    }
+
+    ServerSettings getInstance() {
+      return settings;
+    }
+  }
+
+  public static ServerSettings getInstance(){
+
+    return Singleton.INSTANCE.getInstance();
+  }
+
+  private Properties _prop = new Properties();
+
+  public static final String SERVER_SETTINGS_FILE_PATH = "serversettings.properties";
+
+  private void readProperies(String fileName) {
     try {
-      InputStream in = ServerSettings.class.getResourceAsStream("/" + fileName);
+      InputStream in = ServerSettings.class.getResourceAsStream("/"+ SERVER_SETTINGS_FILE_PATH);
       BufferedReader bf = new BufferedReader(new InputStreamReader(in));
       _prop.load(bf);
     } catch (IOException e) {
       e.printStackTrace();
     }
   }
-
-  public static final String scriptDirectory = System.getProperty("user.dir") + "/src/main/java/script/callablescript";
-
-  public static String getProperty(String key){
-    return _prop.getProperty(key);
-  }
-
-
 }
 

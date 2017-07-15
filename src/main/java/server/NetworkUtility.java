@@ -1,3 +1,5 @@
+package server;
+
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 import sun.reflect.generics.reflectiveObjects.NotImplementedException;
@@ -7,7 +9,7 @@ import sun.reflect.generics.reflectiveObjects.NotImplementedException;
  */
 public class NetworkUtility {
   static AtomicInteger atomicInteger = new AtomicInteger(0);
-  public static int fakeGenerateUniqueId(){
+  public static int networkUniqueId(){
     return atomicInteger.incrementAndGet(); //fake, implement with redis
   }
 
