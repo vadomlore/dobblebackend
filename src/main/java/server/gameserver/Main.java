@@ -23,7 +23,7 @@ public class Main {
 //    while (true) {
 //      String s = scanner.next();
 //      if (s.equals("n")) {
-//        System.out.println("start reload");
+//        System.out.println("run reload");
 //        ScriptManager.getInstance().reloadScript(scriptDirectory, compiler);
 //      }
 //    }
@@ -42,7 +42,7 @@ public class Main {
 //        IScript script = ScriptManager.getInstance().get(1001);
 //        script.execute();
 //      }, 0, 2, TimeUnit.SECONDS);
-//    }).start();
+//    }).run();
   }
 
 }

@@ -2,17 +2,14 @@ package server.gameserver;
 
 import base.messaging.MessagePack;
 import base.messaging.MessageRouteType;
-import base.messaging.Ping;
+import base.messaging.PingMsg;
 import io.netty.channel.Channel;
-import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
-import io.netty.util.concurrent.EventExecutorGroup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import server.gateway.GatewayInternalServerMessageHandler;
 
 /**
  * Created by zyl on 2017/7/14.
@@ -25,6 +22,8 @@ public class GameServerInternalMessageHandler extends ChannelInboundHandlerAdapt
 
     private int idleReadCounter = 0;
 
+    private int heartBeatCountTest = 0;//fortest
+
     private GameServer gameServer;
 
     public GameServerInternalMessageHandler(GameServer gameServer) {
@@ -34,6 +33,7 @@ public class GameServerInternalMessageHandler extends ChannelInboundHandlerAdapt
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
         logger.info("game server {} connected to gateway server {}", ctx.channel().localAddress(),
                 ctx.channel().remoteAddress());
+        gameServer.setGatewayChannel(ctx.channel());
     }
 
     @Override
@@ -41,7 +41,7 @@ public class GameServerInternalMessageHandler extends ChannelInboundHandlerAdapt
         if(msg instanceof MessagePack){
             MessagePack pack = (MessagePack)msg;
             if(pack.msgType == 0){
-                logger.info("receive heart beat pack {}", Ping.fromMessagePack(pack));
+                logger.info("receive heart beat pack {}", PingMsg.fromMessagePack(pack));
                 //response pong;
                 pack.routeType = MessageRouteType.GateToGameServer.value();
             }
@@ -61,9 +61,13 @@ public class GameServerInternalMessageHandler extends ChannelInboundHandlerAdapt
                 }
             } else if (event.state() == IdleState.WRITER_IDLE) {
                 System.out.println("write idle");
-                //发送心跳到GatewayServer
-                Ping ping = new Ping(MessageRouteType.GameServerToGate);
-                ctx.channel().writeAndFlush(ping.getPack());
+                if(heartBeatCountTest < 10){
+                    //发送心跳到GatewayServer
+                    PingMsg ping = new PingMsg(MessageRouteType.GameServerToGate);
+                    ctx.channel().writeAndFlush(ping.getPack());
+                    heartBeatCountTest++;
+                }
+
             } else if (event.state() == IdleState.ALL_IDLE)
                 System.out.println("all idle");
         }
@@ -71,10 +75,10 @@ public class GameServerInternalMessageHandler extends ChannelInboundHandlerAdapt
 
     private void onGatewayServerLostConnection(Channel channel) {
         //TODO process disconnect;
-        channel.close();
+        gameServer.close();
 
         //是否进行自动重连？
-        //start the reconnect connect task thread;
+        //run the reconnect connect task thread;
         //gameServer.runInternalServerListenerTask();
     }
 
@@ -82,7 +86,7 @@ public class GameServerInternalMessageHandler extends ChannelInboundHandlerAdapt
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         logger.error("exceptionCaught {}", cause.toString());
         if (ctx != null) {
-            ctx.close();
+            gameServer.close();
             logger.warn("disconnect with gateway server {}", ctx.channel().remoteAddress());
         }
     }

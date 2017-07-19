@@ -2,31 +2,48 @@ package server.gateway;
 
 import base.messaging.MessagePack;
 import base.messaging.MessageRouteType;
-import base.messaging.Ping;
+import base.messaging.PingMsg;
+import base.network.Session;
 import io.netty.channel.*;
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
-import io.netty.util.concurrent.EventExecutorGroup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import sun.plugin2.message.Message;
 
 /**
  * Created by zyl on 2017/7/14.
  */
 public class GatewayInternalServerMessageHandler extends ChannelInboundHandlerAdapter {
-    //简单的房间管理控制
-    static final int GATE_WAY_MAX_IDLE_COUNT = 3;
+
+    private GatewayServer gatewayServer;
 
     private int idleReadCounter = 0;
 
+    static final int GATE_WAY_MAX_IDLE_COUNT = 3;
+
     static final Logger logger = LoggerFactory.getLogger(GatewayInternalServerMessageHandler.class);
+
+    //简单的房间管理控制
+    public GatewayInternalServerMessageHandler(GatewayServer gatewayServer){
+        this.gatewayServer = gatewayServer;
+    }
+
+    public void channelActive(ChannelHandlerContext ctx) throws Exception {
+        gatewayServer.serverChannelManager.put(ctx.channel(), Session.dummySession);
+    }
+
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
         if(msg instanceof MessagePack){
             MessagePack pack = (MessagePack)msg;
-            if(pack.msgType == 0){
-                logger.info("receive heart beat pack {}", Ping.fromMessagePack(pack));
+            if(pack.msgType == 0){ //heart beat
+                logger.info("receive heartbeat pack {}", PingMsg.fromMessagePack(pack));
+                //response pong;
+                pack.routeType = MessageRouteType.GateToGameServer.value();
+                ctx.channel().writeAndFlush(pack);
+            }
+            if(pack.msgType == 1){ // server message;
+                logger.info("receive heartbeat pack {}", PingMsg.fromMessagePack(pack));
                 //response pong;
                 pack.routeType = MessageRouteType.GateToGameServer.value();
                 ctx.channel().writeAndFlush(pack);
@@ -44,16 +61,15 @@ public class GatewayInternalServerMessageHandler extends ChannelInboundHandlerAd
                 if (idleReadCounter >= GATE_WAY_MAX_IDLE_COUNT) {
                     logger.warn("game server heart beat disappear", ctx.channel().remoteAddress());
                     //do some clean up
-                    cleanGameServerConnection(ctx.channel());
+
+                    gatewayServer.serverChannelManager.remove(ctx.channel());
                 }
             }
         }
     }
 
-    void cleanGameServerConnection(Channel channel){
-        if(channel != null){
-            channel.close();
-        }
-        //todo do some clean up game logic related;
+    public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
+        logger.warn("GateWayInternalSeverMessageHandler.java {}", cause.toString());
+        gatewayServer.safeClose();
     }
 }

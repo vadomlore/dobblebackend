@@ -1,5 +1,7 @@
 package server.gateway;
 
+import base.network.ChannelManager;
+import base.network.Session;
 import codec.MsgPackDecoder;
 import codec.MsgPackEncoder;
 import consts.ServerSettings;
@@ -14,11 +16,7 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
 
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.LinkedBlockingQueue;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.ThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 
 import io.netty.handler.timeout.IdleStateHandler;
 import org.slf4j.Logger;
@@ -36,8 +34,12 @@ public class GatewayServer {
 
     private ServerBean serverBean;
 
-    private Channel clientGateWayChannel = null;
-    private Channel gateWayServerChannel = null;
+    ChannelManager serverChannelManager = new ChannelManager("channel-group-for-game-server");
+
+    ChannelManager clientChannelManager = new ChannelManager("channel-group-for-client");
+
+    private Channel knownChannelForClient = null;
+    private Channel knownChannelForServer = null;
 
 
     public static ExecutorService gatewayexecutorpool = new ThreadPoolExecutor(2, 2, 60, TimeUnit.SECONDS,
@@ -45,12 +47,12 @@ public class GatewayServer {
         @Override
         public Thread newThread(Runnable r) {
             Thread t = new Thread(r);
-            loggger.info("start thread with name {} on {}", t.getId(), t.getName());
+            loggger.info("run thread with name {} on {}", t.getId(), t.getName());
             return t;
         }
     });
 
-    public void start() {
+    public void run() {
         gatewayexecutorpool.execute(
                 () -> {
                     startServerBind();
@@ -86,13 +88,14 @@ public class GatewayServer {
                                     new IdleStateHandler(8, 0, 0),
                                     new MsgPackDecoder(),
                                     new MsgPackEncoder(),
-                                    new GatewayInternalServerMessageHandler());
+                                    new GatewayInternalServerMessageHandler(GatewayServer.this));
                         }
                     });
-            ChannelFuture gateWayServerChannel = b.bind(port).sync();
+            ChannelFuture f = b.bind(port).sync();
             serverBean.setServerStatus(ServerStatus.Active);
             serverBean.store();
-            gateWayServerChannel.channel().closeFuture().sync().addListener((e) -> {
+            knownChannelForServer = f.channel();
+            f.channel().closeFuture().sync().addListener((e) -> {
                 if (e.isSuccess()) {
                     serverBean.setServerStatus(ServerStatus.Inavtive);
                     serverBean.store();
@@ -125,8 +128,9 @@ public class GatewayServer {
                                     new ClientRequestHandler()); //处理客户端的连接请求
                         }
                     });
-            ChannelFuture clientGateWayChannel = b.bind(port).sync();
-            clientGateWayChannel.channel().closeFuture().sync();
+            ChannelFuture f = b.bind(port).sync();
+            knownChannelForClient = f.channel();
+            f.channel().closeFuture().sync();
         } catch (InterruptedException e) {
             loggger.debug("Gateway server bind InterruptedException. {}", e.toString());
         } finally {
@@ -135,8 +139,36 @@ public class GatewayServer {
         }
     }
 
-    public void close() {
-        this.clientGateWayChannel.close();
-        this.gateWayServerChannel.close();
+
+    public void safeClose() {
+
+        //不让客户端进入
+        if(this.knownChannelForClient != null){
+            this.knownChannelForClient.close();
+        }
+
+        //不让新服务器进入
+        if(this.knownChannelForServer != null){
+            this.knownChannelForServer.close();
+        }
+
+        //关掉所有服务器连接
+        CopyOnWriteArrayList<Session> ssessions =  this.serverChannelManager.getAll();
+        for (Session session : ssessions ) {
+            session.safeClose();
+        }
+
+        this.serverChannelManager.removeAll();
+
+        //关掉所有客户端
+        CopyOnWriteArrayList<Session> csessions =  this.clientChannelManager.getAll();
+        for (Session session : csessions) {
+            session.safeClose();
+        }
+        otherCleanUp();
+    }
+
+    void otherCleanUp(){
+        //todo some clean up works here.
     }
 }
