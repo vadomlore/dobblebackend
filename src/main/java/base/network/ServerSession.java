@@ -8,14 +8,12 @@ import server.ServerStatus;
  *
  * Created by Administrator on 2017/7/18.
  */
-public class ServerAbstractSession extends Session {
+public class ServerSession extends Session {
 
     private ServerStatus serverStatus;
 
-    public ServerAbstractSession(Long  sessionId, String name, Channel channel){
-        this.sessionId = sessionId;
-        this.name = name;
-        this.channel = channel;
+    public ServerSession(Long  sessionId, String name, Channel channel){
+        super(sessionId, name, channel);
     }
 
     public ServerStatus getServerStatus(){

@@ -2,7 +2,7 @@ package server.gameserver;
 
 import base.messaging.MessagePack;
 import base.messaging.MessageRouteType;
-import base.messaging.PingMsg;
+import base.messaging.binary.PingMsg;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
@@ -38,12 +38,11 @@ public class GameServerInternalMessageHandler extends ChannelInboundHandlerAdapt
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
-        if(msg instanceof MessagePack){
-            MessagePack pack = (MessagePack)msg;
-            if(pack.msgType == 0){
-                logger.info("receive heart beat pack {}", PingMsg.fromMessagePack(pack));
-                //response pong;
-                pack.routeType = MessageRouteType.GateToGameServer.value();
+        if(msg instanceof PingMsg){
+            new PingMsg();
+            PingMsg pack = (PingMsg)msg;
+            {
+                logger.info("receive heart beat pack {}", pack);
             }
         }
     }
@@ -63,8 +62,8 @@ public class GameServerInternalMessageHandler extends ChannelInboundHandlerAdapt
                 System.out.println("write idle");
                 if(heartBeatCountTest < 10){
                     //发送心跳到GatewayServer
-                    PingMsg ping = new PingMsg(MessageRouteType.GameServerToGate);
-                    ctx.channel().writeAndFlush(ping.getPack());
+                    PingMsg ping = new PingMsg(System.currentTimeMillis());
+                    ctx.channel().writeAndFlush(ping);
                     heartBeatCountTest++;
                 }
 

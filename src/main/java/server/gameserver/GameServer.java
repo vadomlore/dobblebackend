@@ -27,7 +27,7 @@ public final class GameServer {
 
     public final static Logger logger = LoggerFactory.getLogger(GameServer.class);
 
-    private static final int PORT = Integer.parseInt(System.getProperty("port", "8090"));
+    private static final int PORT = Integer.parseInt(System.getProperty("port", "8091"));
 
     volatile boolean gateWayConnected = false;
 

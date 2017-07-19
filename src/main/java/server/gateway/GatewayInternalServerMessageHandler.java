@@ -1,8 +1,8 @@
 package server.gateway;
 
-import base.messaging.MessagePack;
-import base.messaging.MessageRouteType;
-import base.messaging.PingMsg;
+
+import base.messaging.binary.GameServerInitMsg;
+import base.messaging.binary.PingMsg;
 import base.network.Session;
 import io.netty.channel.*;
 import io.netty.handler.timeout.IdleState;
@@ -24,30 +24,27 @@ public class GatewayInternalServerMessageHandler extends ChannelInboundHandlerAd
     static final Logger logger = LoggerFactory.getLogger(GatewayInternalServerMessageHandler.class);
 
     //简单的房间管理控制
-    public GatewayInternalServerMessageHandler(GatewayServer gatewayServer){
+    public GatewayInternalServerMessageHandler(GatewayServer gatewayServer) {
         this.gatewayServer = gatewayServer;
     }
 
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
-        gatewayServer.serverChannelManager.put(ctx.channel(), Session.dummySession);
+        gatewayServer.serverChannelManager.put(ctx.channel(), new Session(-1L, "UnInitialize", ctx.channel()));
     }
 
     @Override
     public void channelRead(ChannelHandlerContext ctx, Object msg) throws Exception {
-        if(msg instanceof MessagePack){
-            MessagePack pack = (MessagePack)msg;
-            if(pack.msgType == 0){ //heart beat
-                logger.info("receive heartbeat pack {}", PingMsg.fromMessagePack(pack));
-                //response pong;
-                pack.routeType = MessageRouteType.GateToGameServer.value();
-                ctx.channel().writeAndFlush(pack);
-            }
-            if(pack.msgType == 1){ // server message;
-                logger.info("receive heartbeat pack {}", PingMsg.fromMessagePack(pack));
-                //response pong;
-                pack.routeType = MessageRouteType.GateToGameServer.value();
-                ctx.channel().writeAndFlush(pack);
-            }
+        if (msg instanceof PingMsg) {
+            logger.info("receive heartbeat pack {}", msg);
+
+            ctx.channel().writeAndFlush(msg);
+        }
+        if (msg instanceof GameServerInitMsg) { // server message;
+            logger.info("receive heartbeat pack {}", msg);
+
+            //init message
+            //response pong;
+            //ctx.channel().writeAndFlush("ok");
         }
     }
 
@@ -61,8 +58,15 @@ public class GatewayInternalServerMessageHandler extends ChannelInboundHandlerAd
                 if (idleReadCounter >= GATE_WAY_MAX_IDLE_COUNT) {
                     logger.warn("game server heart beat disappear", ctx.channel().remoteAddress());
                     //do some clean up
+                    Session session = gatewayServer.serverChannelManager.get(ctx.channel());
 
-                    gatewayServer.serverChannelManager.remove(ctx.channel());
+                    if("UnInitialize".equals(session.getName())){
+                        gatewayServer.serverChannelManager.remove(ctx.channel());
+                        ctx.channel().close(); //还没有发送关闭初始化消息的服务器将直接关闭连接。
+                    }
+                    else{
+                        session.onRemove();
+                    }
                 }
             }
         }

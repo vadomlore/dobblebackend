@@ -1,16 +1,12 @@
 package base.network;
 
 import io.netty.channel.Channel;
-
 /**
  * session 中只有基本信息，包括名字，Id， 以及连接信息，不包含复杂元素
  * 玩家可以包含一个session
  * Created by Administrator on 2017/7/18.
  */
 public  class Session {
-
-    // -1 是系统保留dummySession id
-    public static Session dummySession = new Session(-1L, "#dummySession#", null);
 
     protected Long sessionId; //unique sessionId;
 
@@ -70,17 +66,16 @@ public  class Session {
                 '}';
     }
 
-    public boolean isDummy(){
-        return this == dummySession;
-    }
-
 
     public void onRemove() {
         //onSessionRemoved;
 
         //do remove behaviours;
+
+        //all safeClose;
+        safeClose();
     }
 
     //derived by sub or implementation
-    public void safeClose(){}
+    protected void safeClose(){}
 }

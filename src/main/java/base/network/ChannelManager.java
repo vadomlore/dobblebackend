@@ -8,7 +8,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 
 import io.netty.channel.Channel;
 /**
- * dummy session can only be added when channel is first
+ * 短线重新连接的channel和原来的channel可能id不同，需要处理这种情况
  * initialized;
  * Created by Administrator on 2017/7/18.
  */
@@ -50,7 +50,6 @@ public class ChannelManager
     }
 
     public void remove(Session session){
-        if(session.isDummy()) return;
         remove(session.getChannel());
     }
 
@@ -64,8 +63,18 @@ public class ChannelManager
     private boolean put0(Channel channel, Session session) {
         if (channel == null || session == null)
             throw new InvalidParameterException("invalid channel or invalid session");
-        if(channel != null && channelSession.get(channel).isDummy())
-        {
+        if (channelSession.get(channel) == null) {
+            if(channel.equals(session.channel)){
+                channelSession.put(channel, session);
+                return true;
+            }
+            return false;
+        }
+        if(session.getSessionId() != -1 && quickSessionLookup.containsKey(session.getSessionId())){
+            channel = quickSessionLookup.get(session.getSessionId()).getChannel();
+            if(channel != null ){
+                remove(channel); //安全关闭以前的session
+            }
             channelSession.put(channel, session);
             return true;
         }
@@ -74,16 +83,6 @@ public class ChannelManager
             return false;
         }
 
-        if (channelSession.get(channel) == null || channelSession.get(channel).isDummy()) {
-            if(channel.equals(session.channel)){
-                channelSession.put(channel, session);
-                return true;
-            }
-            if(channelSession.get(channel).isDummy() && !session.isDummy()){
-                return false;
-            }
-            return false;
-        }
         return false;
     }
 

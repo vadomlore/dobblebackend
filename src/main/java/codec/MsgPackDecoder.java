@@ -1,15 +1,14 @@
 package codec;
 
+import base.messaging.binary.BinaryMessageParserFactory;
 import base.messaging.MessagePack;
+import base.messaging.protobuf.ProtoBufferParserFactory;
+import base.messaging.ProtocolId;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
-import io.netty.handler.codec.ByteToMessageCodec;
 import io.netty.handler.codec.ByteToMessageDecoder;
-import io.netty.handler.codec.CodecException;
-import io.netty.handler.codec.MessageToByteEncoder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import sun.plugin2.message.Message;
 
 import java.util.List;
 
@@ -29,24 +28,39 @@ public class MsgPackDecoder extends ByteToMessageDecoder{
             logger.error("channel:{} packge size {} exceed the limit {}", ctx.channel(), totalLength, MAX_PACKAGE_SIZE);
             ctx.close();
         }
-        if(totalLength < 14){ //消息格式限制至少14byte
+        if(totalLength < 10){ //消息格式限制至少14byte
             logger.error("channel:{} packge size {} invlid", ctx.channel(), totalLength);
             ctx.close();
         }
 
+        MessagePack pack = new MessagePack();
         if(byteBuf.readableBytes()>= totalLength){
-            MessagePack pack = new MessagePack();
             byteBuf.readInt();
-            pack.size = totalLength;
-            pack.routeType = byteBuf.readByte();
-            pack.serializeType = byteBuf.readByte();
-            pack.seqId = byteBuf.readInt();
-            pack.msgType = byteBuf.readInt();
-            byte[] message = new byte[totalLength - 14];
+            pack.setSize(totalLength);
+            pack.setProtocolId(byteBuf.readByte());
+            pack.setSeqId(byteBuf.readInt());
+            byte[] message = new byte[totalLength - pack.baseSize()];
             byteBuf.readBytes(message);
-            pack.message = message;
-            list.add(pack);
+            pack.setMessage(message);
+            pack.setReceiveTimestamp(System.currentTimeMillis());
         }
 
+        MessagePack newPack = null;
+        switch (ProtocolId.type(pack.getProtocolId())){
+            case Binary:
+                newPack = BinaryMessageParserFactory.parse(pack);
+                break;
+            case Protobuf:
+                newPack = ProtoBufferParserFactory.parse(pack);
+                break;
+            default:
+                break;
+        }
+        if(newPack != null){
+            list.add(newPack);
+        }
+        else {
+            logger.warn("invalid Msg pack decode");
+        }
     }
 }

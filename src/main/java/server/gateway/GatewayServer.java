@@ -2,6 +2,7 @@ package server.gateway;
 
 import base.network.ChannelManager;
 import base.network.Session;
+import base.network.SessionUtils;
 import codec.MsgPackDecoder;
 import codec.MsgPackEncoder;
 import consts.ServerSettings;
@@ -155,7 +156,7 @@ public class GatewayServer {
         //关掉所有服务器连接
         CopyOnWriteArrayList<Session> ssessions =  this.serverChannelManager.getAll();
         for (Session session : ssessions ) {
-            session.safeClose();
+            SessionUtils.safeClose(session);
         }
 
         this.serverChannelManager.removeAll();
@@ -163,7 +164,7 @@ public class GatewayServer {
         //关掉所有客户端
         CopyOnWriteArrayList<Session> csessions =  this.clientChannelManager.getAll();
         for (Session session : csessions) {
-            session.safeClose();
+            SessionUtils.safeClose(session);
         }
         otherCleanUp();
     }
