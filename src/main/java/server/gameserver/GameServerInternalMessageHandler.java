@@ -1,8 +1,8 @@
 package server.gameserver;
 
-import base.messaging.MessagePack;
-import base.messaging.MessageRouteType;
 import base.messaging.binary.PingMsg;
+import base.messaging.protobuf.ProtoBufferMessagePack;
+import com.proto.gamename.Game;
 import io.netty.channel.Channel;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelInboundHandlerAdapter;
@@ -34,6 +34,19 @@ public class GameServerInternalMessageHandler extends ChannelInboundHandlerAdapt
         logger.info("game server {} connected to gateway server {}", ctx.channel().localAddress(),
                 ctx.channel().remoteAddress());
         gameServer.setGatewayChannel(ctx.channel());
+
+        logger.debug("send local ipaddress to remote");
+        ProtoBufferMessagePack pack = new ProtoBufferMessagePack();
+        pack.setSessionId(this.gameServer.getId());
+
+        Game.ServerNode.Builder builder = Game.ServerNode.newBuilder();
+        builder.setId(gameServer.getId());
+        builder.setIp(gameServer.getIp());
+        builder.setPort(gameServer.getPort());
+        builder.setName(gameServer.getName());
+        builder.setRole(Game.ServerNode.ServerRole.GameServer);
+        pack.setMessageObject(builder.build());
+        ctx.channel().writeAndFlush(pack);
     }
 
     @Override
@@ -63,6 +76,7 @@ public class GameServerInternalMessageHandler extends ChannelInboundHandlerAdapt
                 if(heartBeatCountTest < 10){
                     //发送心跳到GatewayServer
                     PingMsg ping = new PingMsg(System.currentTimeMillis());
+                    ping.setSessionId(this.gameServer.getId());
                     ctx.channel().writeAndFlush(ping);
                     heartBeatCountTest++;
                 }

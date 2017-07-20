@@ -1,5 +1,6 @@
 package server.gameserver;
 
+import base.utility.SnowflakeIdWorker;
 import codec.MsgPackDecoder;
 import codec.MsgPackEncoder;
 import consts.ServerSettings;
@@ -16,8 +17,10 @@ import io.netty.handler.timeout.IdleStateHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import server.*;
+import sun.net.util.IPAddressUtil;
 
 import java.util.Scanner;
+import java.util.UUID;
 import java.util.concurrent.*;
 
 /**
@@ -28,6 +31,33 @@ public final class GameServer {
     public final static Logger logger = LoggerFactory.getLogger(GameServer.class);
 
     private static final int PORT = Integer.parseInt(System.getProperty("port", "8091"));
+
+    private String ip;
+
+    private int port;
+
+    private String name;
+
+    private long id;
+
+    GameServer(){
+        this.id = new SnowflakeIdWorker(0, 0).nextId();
+        this.name = "default-game-server";
+        this.ip = "127.0.0.1";
+        this.port = PORT;
+    }
+
+    GameServer(String ip, int port) {
+        this("default", ip, port);
+    }
+
+
+    GameServer(String name, String ip, int port){
+        this.id = new SnowflakeIdWorker(0, 0).nextId();
+        this.name = name;
+        this.ip = ip;
+        this.port = port;
+    }
 
     volatile boolean gateWayConnected = false;
 
@@ -48,8 +78,7 @@ public final class GameServer {
         @Override
         public Thread newThread(Runnable r) {
             Thread t = new Thread(r);
-            logger.debug("Created thread %d with name %s on %s\n", t.getId(), t.getName(),
-                    this.getClass().getName());
+            logger.debug("Created thread %d with name %s on %s\n", t.getId(), t.getName(), this.getClass().getName());
             return t;
         }
     });
@@ -97,7 +126,7 @@ public final class GameServer {
                     });
 
             // Start the server.
-            final ChannelFuture f = b.bind(PORT).sync();
+            final ChannelFuture f = b.bind(port).sync();
             channleForClient = f.channel();
 
             // Wait until the server socket is closed.
@@ -124,7 +153,7 @@ public final class GameServer {
                         public void initChannel(SocketChannel ch) throws Exception {
                             ChannelPipeline p = ch.pipeline();
                             p.addLast(new LoggingHandler(LogLevel.INFO));
-                            p.addLast(new IdleStateHandler(0, 5, 0));
+                            //p.addLast(new IdleStateHandler(0, 5, 0));
                             p.addLast(new MsgPackDecoder());
                             p.addLast(new MsgPackEncoder());
                             p.addLast(new GameServerInternalMessageHandler(GameServer.this));
@@ -185,6 +214,38 @@ public final class GameServer {
             channleForClient.close();
         }
 
+    }
+
+    public String getIp() {
+        return ip;
+    }
+
+    public void setIp(String ip) {
+        this.ip = ip;
+    }
+
+    public int getPort() {
+        return port;
+    }
+
+    public void setPort(int port) {
+        this.port = port;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public long getId() {
+        return id;
+    }
+
+    public void setId(long id) {
+        this.id = id;
     }
 }
 

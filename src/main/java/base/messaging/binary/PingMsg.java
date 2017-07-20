@@ -1,6 +1,7 @@
 package base.messaging.binary;
 
 import io.netty.buffer.ByteBuf;
+import io.netty.buffer.ByteBufUtil;
 import io.netty.buffer.Unpooled;
 
 /**
@@ -8,14 +9,11 @@ import io.netty.buffer.Unpooled;
  */
 public class PingMsg extends BinaryMessagePack {
 
-  public static Integer id = 0;
-
   private long timestamp;
 
   public PingMsg(){}
 
   public PingMsg(long timestamp){
-    this.writeSeqId(id++);
     this.timestamp = timestamp;
   }
 
@@ -48,10 +46,10 @@ public class PingMsg extends BinaryMessagePack {
    * @return
    */
   @Override
-  public ByteBuf wrapMessage(){
+  public byte[] wrapMessage(){
     ByteBuf buf = Unpooled.buffer(8);
     buf.writeLong(timestamp);
-    return buf;
+    return ByteBufUtil.getBytes(buf, 0, 8);
   }
 
   /**
@@ -60,10 +58,10 @@ public class PingMsg extends BinaryMessagePack {
    */
   @Override
   public ByteBuf pack(){
-    ByteBuf buf = Unpooled.buffer(21);
+    ByteBuf buf = Unpooled.buffer(24);
     buf.writeInt(getBaseSize() + 4);
     buf.writeByte(this.getProtocolId());
-    buf.writeInt(this.getSeqId());
+    buf.writeLong(this.getSessionId());
     buf.writeByte(BinaryMessageParserFactory.getId(PingMsg.class));
     buf.writeLong(timestamp);
     return buf;

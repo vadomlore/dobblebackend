@@ -16,25 +16,32 @@ public class MsgPackEncoder extends MessageToByteEncoder {
 
     @Override
     protected void encode(ChannelHandlerContext ctx, Object o, ByteBuf out) throws Exception {
-        if (o instanceof BinaryMessagePack) {
-            BinaryMessagePack ms = (BinaryMessagePack) o;
-            out.writeInt(ms.totalSize());
-            out.writeByte(ms.getProtocolId());
-            out.writeInt(ms.getSeqId());
-            out.writeInt(ms.getMessageType());
-            out.writeBytes(ms.wrapMessage());
-        } else if (o instanceof ProtoBufferMessagePack) {
-            ProtoBufferMessagePack ms = (ProtoBufferMessagePack) o;
-            out.writeInt(ms.totalSize());
-            out.writeByte(ms.getProtocolId());
-            out.writeInt(ms.getSeqId());
-            out.writeInt(ms.getMessageType());
-            out.writeBytes(ms.wrapMessage());
-        } else if (o instanceof ByteBuf) {
-            out.writeBytes((ByteBuf) o);
-        } else {
-            logger.error("{} {} encode invalid message", MsgPackEncoder.class, o);
-            ctx.channel().close();
+        try{
+            if (o instanceof BinaryMessagePack) {
+                BinaryMessagePack ms = (BinaryMessagePack) o;
+                out.writeInt(ms.totalSize());
+                out.writeByte(ms.getProtocolId());
+                out.writeLong(ms.getSessionId());
+                out.writeInt(ms.getMessageType());
+                out.writeBytes(ms.wrapMessage());
+            }
+            else if (o instanceof ProtoBufferMessagePack) {
+                ProtoBufferMessagePack ms = (ProtoBufferMessagePack) o;
+                out.writeInt(ms.totalSize());
+                out.writeByte(ms.getProtocolId());
+                out.writeLong(ms.getSessionId());
+                out.writeInt(ms.getMessageType());
+                out.writeBytes(ms.wrapMessage());
+            }
+            else if (o instanceof ByteBuf) {
+                out.writeBytes((ByteBuf) o);
+            }
+            else {
+                logger.error("{} {} encode invalid message", MsgPackEncoder.class, o);
+                ctx.channel().close();
+            }
+        }catch (Exception e){
+            e.printStackTrace();
         }
     }
 }

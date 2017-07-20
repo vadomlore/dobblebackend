@@ -44,8 +44,8 @@ public class ChannelManager
 
     public void remove(Channel channel){
         Session sessoin = channelSession.get(channel);
-        quickSessionLookup.remove(sessoin.getSessionId());
         sessoin.onRemove();
+        quickSessionLookup.remove(sessoin.getSessionId());
         channelSession.remove(channel);
     }
 

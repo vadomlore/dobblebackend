@@ -11,36 +11,41 @@ import io.netty.buffer.Unpooled;
  */
 public class ProtoBufferMessagePack extends MessagePack {
 
-    Object object;
+    Object messageObject; //具体的protobuf message
+
+    public ProtoBufferMessagePack(){}
+
+    private static final int MessageTypeIdentiferLength = 4;
+
+    @Override
+    public int getBaseSize(){
+        return super.getBaseSize() + MessageTypeIdentiferLength;
+    }
 
     @Override
     public byte getProtocolId() {
         return ProtocolId.Protobuf.value();
     }
 
-    int getBaseSize(){
-        return 13;
-    }
-
     public int totalSize(){
-        return getBaseSize() + ((GeneratedMessage)object).getSerializedSize();
+        return getBaseSize() + ((GeneratedMessage) messageObject).getSerializedSize();
     }
 
-    public Object getObject() {
-        return object;
+    public Object getMessageObject() {
+        return messageObject;
     }
 
-    public void setObject(Object object) {
-        this.object = object;
+    public void setMessageObject(Object messageObject) {
+        this.messageObject = messageObject;
     }
 
     public int getMessageType() {
-        return ProtoBufferParserFactory.getId(this.getClass());
+        return ProtoBufferParserFactory.getId(this.messageObject.getClass());
     }
 
     @Override
-    public ByteBuf wrapMessage() {
-        byte[] bytes = ((GeneratedMessage)object).toByteArray();
-        return Unpooled.wrappedBuffer(bytes);
+    public byte[] wrapMessage() {
+        byte[] bytes = ((GeneratedMessage) messageObject).toByteArray();
+        return bytes;
     }
 }

@@ -7,6 +7,6 @@ public class SessionUtils
 {
     public static void safeClose(Session session)
     {
-        session.safeClose();
+        session.close();
     }
 }

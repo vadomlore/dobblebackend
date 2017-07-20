@@ -38,8 +38,8 @@ public class MsgPackDecoder extends ByteToMessageDecoder{
             byteBuf.readInt();
             pack.setSize(totalLength);
             pack.setProtocolId(byteBuf.readByte());
-            pack.setSeqId(byteBuf.readInt());
-            byte[] message = new byte[totalLength - pack.baseSize()];
+            pack.setSessionId(byteBuf.readLong());
+            byte[] message = new byte[totalLength - pack.getBaseSize()];
             byteBuf.readBytes(message);
             pack.setMessage(message);
             pack.setReceiveTimestamp(System.currentTimeMillis());

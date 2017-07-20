@@ -67,15 +67,17 @@ public  class Session {
     }
 
 
-    public void onRemove() {
+    protected void onRemove() {
         //onSessionRemoved;
 
         //do remove behaviours;
 
-        //all safeClose;
-        safeClose();
+        //all close;
+        close();
     }
 
     //derived by sub or implementation
-    protected void safeClose(){}
+    protected void close(){
+        this.channel.close();
+    }
 }

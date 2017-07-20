@@ -3,12 +3,16 @@ package server.gateway;
 
 import base.messaging.binary.GameServerInitMsg;
 import base.messaging.binary.PingMsg;
+import base.messaging.protobuf.ProtoBufferMessagePack;
+import base.network.GameServerSession;
 import base.network.Session;
+import com.proto.gamename.Game;
 import io.netty.channel.*;
 import io.netty.handler.timeout.IdleState;
 import io.netty.handler.timeout.IdleStateEvent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import server.ServerStatus;
 
 /**
  * Created by zyl on 2017/7/14.
@@ -29,7 +33,8 @@ public class GatewayInternalServerMessageHandler extends ChannelInboundHandlerAd
     }
 
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
-        gatewayServer.serverChannelManager.put(ctx.channel(), new Session(-1L, "UnInitialize", ctx.channel()));
+        logger.info("Channel active {}", ctx);
+        //gatewayServer.serverChannelManager.put(ctx.channel(), new GameServerSession(-1L, "UnInitialize", ctx.channel()));
     }
 
     @Override
@@ -39,12 +44,26 @@ public class GatewayInternalServerMessageHandler extends ChannelInboundHandlerAd
 
             ctx.channel().writeAndFlush(msg);
         }
-        if (msg instanceof GameServerInitMsg) { // server message;
-            logger.info("receive heartbeat pack {}", msg);
 
+        if (msg instanceof GameServerInitMsg) { // server message;
             //init message
             //response pong;
             //ctx.channel().writeAndFlush("ok");
+        }
+
+        if(msg instanceof ProtoBufferMessagePack){
+            ProtoBufferMessagePack pbMsgPack = (ProtoBufferMessagePack)msg;
+            Object pbMsg = pbMsgPack.getMessageObject();
+
+            if(pbMsg instanceof Game.ServerNode) {
+                Game.ServerNode pbMessage = (Game.ServerNode)pbMsg;
+                logger.info("receive heartbeat pack {}", msg);
+                GameServerSession gsSession = new GameServerSession(pbMessage.getId(), pbMessage.getName(), ctx.channel());
+                gsSession.setNode(pbMessage);
+                gsSession.setStatus(ServerStatus.Active);
+                gatewayServer.serverChannelManager.put(ctx.channel(), gsSession);
+                logger.info("{} registered.", pbMsg);
+            }
         }
     }
 
@@ -59,13 +78,11 @@ public class GatewayInternalServerMessageHandler extends ChannelInboundHandlerAd
                     logger.warn("game server heart beat disappear", ctx.channel().remoteAddress());
                     //do some clean up
                     Session session = gatewayServer.serverChannelManager.get(ctx.channel());
-
-                    if("UnInitialize".equals(session.getName())){
+                    if(session != null){
                         gatewayServer.serverChannelManager.remove(ctx.channel());
-                        ctx.channel().close(); //还没有发送关闭初始化消息的服务器将直接关闭连接。
                     }
                     else{
-                        session.onRemove();
+                        ctx.channel().close();//还没有发送关闭初始化消息的服务器将直接关闭连接。
                     }
                 }
             }
@@ -74,6 +91,6 @@ public class GatewayInternalServerMessageHandler extends ChannelInboundHandlerAd
 
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         logger.warn("GateWayInternalSeverMessageHandler.java {}", cause.toString());
-        gatewayServer.safeClose();
+        gatewayServer.serverChannelManager.remove(ctx.channel());
     }
 }

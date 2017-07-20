@@ -86,7 +86,7 @@ public class GatewayServer {
                         public void initChannel(SocketChannel ch) throws Exception {
                             ch.pipeline().addLast(
                                     new LoggingHandler(LogLevel.INFO),
-                                    new IdleStateHandler(8, 0, 0),
+                                    //new IdleStateHandler(8, 0, 0),
                                     new MsgPackDecoder(),
                                     new MsgPackEncoder(),
                                     new GatewayInternalServerMessageHandler(GatewayServer.this));

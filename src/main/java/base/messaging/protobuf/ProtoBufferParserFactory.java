@@ -22,9 +22,10 @@ public class ProtoBufferParserFactory {
 
     static
     {
-        messageIdTypeMap.put(0, Game.Query.class);
-        messageIdTypeMap.put(1, Game.Answer.class);
-        messageIdTypeMap.put(2, Game.Empty.class);
+        initializePbMapper(0, Game.Query.class);
+        initializePbMapper(1, Game.Answer.class);
+        initializePbMapper(2, Game.Empty.class);
+        initializePbMapper(3, Game.ServerNode.class);
     }
 
     public static Class getClass(Integer typeId) {
@@ -43,15 +44,6 @@ public class ProtoBufferParserFactory {
 
     }
 
-    static void put(int cmd, Class<? extends  GeneratedMessage> clazz){
-        messageIdTypeMap.put(0, Game.Query.class);
-        try {
-            Method m = clazz.getMethod("parseFrom", new Class[] { byte[].class });
-            parseMap.put(cmd, m);
-        } catch (NoSuchMethodException e) {
-            e.printStackTrace();
-        }
-    }
     public static ProtoBufferMessagePack parse(MessagePack messagePack) {
         ByteBuf buf = Unpooled.wrappedBuffer(messagePack.getMessage());
         int id = buf.readInt(); //读取二进制消息的消息类型。 ProtoBufferMessagePack
@@ -67,7 +59,7 @@ public class ProtoBufferParserFactory {
         buf.readBytes(data);
         try {
             Object m = method.invoke(clazz, new Object[] { data });
-            entityPack.setObject(m);
+            entityPack.setMessageObject(m);
         } catch (IllegalAccessException e) {
             e.printStackTrace();
         } catch (InvocationTargetException e) {
@@ -76,4 +68,13 @@ public class ProtoBufferParserFactory {
         return entityPack;
     }
 
+    private static void initializePbMapper(int cmd, Class<? extends  GeneratedMessage> clazz){
+        messageIdTypeMap.put(cmd, clazz);
+        try {
+            Method m = clazz.getMethod("parseFrom", new Class[] { byte[].class });
+            parseMap.put(cmd, m);
+        } catch (NoSuchMethodException e) {
+            e.printStackTrace();
+        }
+    }
 }

@@ -16,7 +16,7 @@ public class MessagePack {
 
   private byte protocolId; //1 binary, 2 protobuf, 3 json;
 
-  private int seqId; //发送消息的自增序列号，用于验证服务器和客户端收发数据一致性
+  private long sessionId; //发送者Id 身份确认
 
   private byte[] message; //具体的消息，不包含MsgId，protobuf名字前缀等等
 
@@ -25,8 +25,8 @@ public class MessagePack {
   public MessagePack() {
   }
 
-  public int baseSize(){
-    return 9;
+  public int getBaseSize(){
+    return 13;
   }
 
   public byte[] getMessage() {
@@ -37,18 +37,18 @@ public class MessagePack {
     return protocolId;
   }
 
-  public int getSeqId() {
-    return seqId;
-  }
-
-  public void writeSeqId(int seqId) {
-    this.seqId = seqId;
+  public long getSessionId() {
+    return sessionId;
   }
 
   public int getSize() {
     return size;
   }
 
+  /**
+   * do not call this method when build up your own message
+   * @param size
+   */
   public void setSize(int size) {
     this.size = size;
   }
@@ -57,8 +57,8 @@ public class MessagePack {
     this.protocolId = protocolId;
   }
 
-  public void setSeqId(int seqId) {
-    this.seqId = seqId;
+  public void setSessionId(long sessionId) {
+    this.sessionId = sessionId;
   }
 
   public void setMessage(byte[] message) {
@@ -74,7 +74,7 @@ public class MessagePack {
   }
 
 
-  public ByteBuf wrapMessage() {
+  public byte[] wrapMessage() {
     throw new NotImplementedException();
   }
 
@@ -84,7 +84,7 @@ public class MessagePack {
             "size=" + size +
 //            ", routeType=" + MessageRouteType.type(routeType) +
             ", protocolId=" + ProtocolId.type(protocolId) +
-            ", seqId=" + seqId +
+            ", sessionId=" + sessionId +
             ", message=" + Arrays.toString(message) +
             '}';
   }
@@ -93,7 +93,7 @@ public class MessagePack {
     this.size = pack.size;
 //    this.routeType = pack.routeType;
     this.protocolId = pack.protocolId;
-    this.seqId= pack.seqId;
+    this.sessionId = pack.sessionId;
     this.message = pack.message;
   }
 

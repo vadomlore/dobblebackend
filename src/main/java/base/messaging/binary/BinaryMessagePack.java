@@ -9,8 +9,17 @@ import sun.reflect.generics.reflectiveObjects.NotImplementedException;
  */
 public  class BinaryMessagePack extends MessagePack {
 
+    private static final int MessageTypeIdentiferLength = 4;
+
     public BinaryMessagePack(){
 
+    }
+
+    @Override
+    public int getBaseSize(){
+        Object clazz = BinaryMessagePack.class;
+
+        return super.getBaseSize() + MessageTypeIdentiferLength;
     }
 
     @Override
@@ -20,10 +29,6 @@ public  class BinaryMessagePack extends MessagePack {
 
     public int getMessageType() {
         return BinaryMessageParserFactory.getId(this.getClass());
-    }
-
-    int getBaseSize(){
-        return 13;
     }
 
     public int totalSize(){
