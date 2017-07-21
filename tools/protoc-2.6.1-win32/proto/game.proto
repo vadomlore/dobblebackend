@@ -1,0 +1,33 @@
+syntax = "proto2";
+
+package com.proto.gamename;
+
+
+message Query {
+    required int64 id = 1;
+    required string questioner = 2;
+    repeated string question = 3;
+}
+message Answer {
+    required int64 id = 1;
+    required string questioner = 2;
+    required string answerer = 3;
+    repeated string solution = 4;
+}
+
+message Empty {
+    optional int32 id = 1;
+}
+
+message ServerNode {
+    enum ServerRole {
+        GameServer = 1;
+        GatewayServer=2;
+    }
+    required int64 id = 1;
+    required string name = 2;
+    required string ip = 3;
+    required int32 port = 4;
+    optional ServerRole role = 5;
+}
+
