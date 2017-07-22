@@ -1,5 +1,6 @@
 package server.gameserver;
 
+import base.threadutility.LoggerThreadFactory;
 import base.utility.SnowflakeIdWorker;
 import codec.MsgPackDecoder;
 import codec.MsgPackEncoder;
@@ -13,14 +14,9 @@ import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.logging.LogLevel;
 import io.netty.handler.logging.LoggingHandler;
-import io.netty.handler.timeout.IdleStateHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import server.*;
-import sun.net.util.IPAddressUtil;
 
-import java.util.Scanner;
-import java.util.UUID;
 import java.util.concurrent.*;
 
 /**
@@ -32,6 +28,8 @@ public final class GameServer {
 
     private static final int PORT = Integer.parseInt(System.getProperty("port", "8091"));
 
+    private static final int MAX_TRY_COUNT = Integer.parseInt(System.getProperty("max-try-connection-count", "3"));
+
     private String ip;
 
     private int port;
@@ -39,6 +37,10 @@ public final class GameServer {
     private String name;
 
     private long id;
+
+    CountDownLatch internalConnectionReady = new CountDownLatch(1);
+
+    public static CountDownLatch exitFlag = new CountDownLatch(1);
 
     GameServer(){
         this.id = new SnowflakeIdWorker(0, 0).nextId();
@@ -67,45 +69,70 @@ public final class GameServer {
 
     private String internalGatewayIp = ServerSettings.getInstance().getProperty("gatewayInternalIp");
     private int internalGatewayPort = Integer.parseInt(ServerSettings.getInstance().getProperty("gatewayInternalPort"));
-    private Integer networkUniqueId = NetworkUtility.networkUniqueId();
 
     public void setGatewayChannel(Channel channel){
         this.channelForGateway = channel;
     }
 
     private ExecutorService gameServerExecutorServicePool = new ThreadPoolExecutor(2, 2, 60, TimeUnit.SECONDS,
-            new LinkedBlockingQueue<>(), new ThreadFactory() {
-        @Override
-        public Thread newThread(Runnable r) {
-            Thread t = new Thread(r);
-            logger.debug("Created thread %d with name %s on %s\n", t.getId(), t.getName(), this.getClass().getName());
-            return t;
-        }
-    });
+            new LinkedBlockingQueue<>(), new LoggerThreadFactory("game-server-thread-pool"));
 
 
     public void run() {
-        runInternalServerListenerTask();
-        runClientListenerTask();
-        System.out.println("Wait for game server to exit");
-        Scanner scanner = new Scanner(System.in);
-        String line = scanner.next();
-        close();
+
+        tryConnectToGatewayTask();
+        listenTask();
+        System.out.println("Waiting for game server to exit...");
+        try {
+            exitFlag.await();
+            doClose();
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
     }
 
-    void runInternalServerListenerTask() {
+
+    /**
+     * 轮询GatewyServer活跃度做的连接
+     */
+    void tryConnectToGatewayTask() {
         gameServerExecutorServicePool.execute(() -> {
-            pollConnectGatewayServer();
+            int tryCount = 0;
+            while (!gateWayConnected && tryCount < MAX_TRY_COUNT ) {
+                try {
+                    tryCount++;
+                    logger.info("Trying to connect to gate way server {}:{}", internalGatewayIp, internalGatewayPort);
+                    Thread.sleep(5000);
+                    //create connection;
+                    initInternalConnection();
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+            if(!gateWayConnected){
+                logger.error("can't connect to gateway server");
+                System.exit(0);
+            }
         });
     }
 
-    void runClientListenerTask() {
+    void listenTask() {
+        try {
+            logger.info("waiting for internal connection...");
+            internalConnectionReady.await();
+            Thread.sleep(2000);
+            logger.info("internal connection to gateway server complete.");
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
         gameServerExecutorServicePool.execute(() -> {
-            runClientListener();
+            listen();
         });
     }
 
-    private void runClientListener() {
+    private void listen() {
         EventLoopGroup bossGroup = new NioEventLoopGroup(1);
         EventLoopGroup workerGroup = new NioEventLoopGroup();
         try {
@@ -162,18 +189,13 @@ public final class GameServer {
 
             // Start the client.
             ChannelFuture f = b.connect(internalGatewayIp, internalGatewayPort).sync();
-            ServerBean gameSeraverBean = new ServerBean(networkUniqueId, ServerType.GameServer,
-                    "gs-" + networkUniqueId, ServerStatus.Active,
-                    f.channel().localAddress().toString(),
-                    0);
-            gameSeraverBean.store();
             logger.info("{}:{}Connect to gate way server {}:{} success.", f.channel().localAddress(),
                     0, internalGatewayIp, internalGatewayPort);
             // Wait until the connection is closed.
-
             logger.error("game server future channel is {} .", f.channel());
-            f.channel().closeFuture().sync();
+            internalConnectionReady.countDown();
             gateWayConnected = true;
+            f.channel().closeFuture().sync();
         } catch (InterruptedException e) {
             logger.debug("GameServer internal connection Interrupted.");
         } finally {
@@ -183,30 +205,7 @@ public final class GameServer {
         }
     }
 
-    /**
-     * 轮询GatewyServer活跃度做的连接
-     */
-    private void pollConnectGatewayServer() {
-        while (!gateWayConnected) {
-            try {
-                logger.info("Trying to connect to gate way server {}:{}", internalGatewayIp, internalGatewayPort);
-                Thread.sleep(5000);
-                ServerStatus status = QueryServerStatus.getServerStatus(internalGatewayIp,
-                        internalGatewayPort); //fixme: hard code now
-                if (status == ServerStatus.Inavtive) {
-                    continue;
-                } else {
-                    break;
-                }
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-        //create connection;
-        initInternalConnection();
-    }
-
-    public void close() {
+    public void doClose() {
         if (channelForGateway != null) {
             channelForGateway.close();
         }

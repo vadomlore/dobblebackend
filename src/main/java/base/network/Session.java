@@ -72,7 +72,7 @@ public  class Session {
 
         //do remove behaviours;
 
-        //all close;
+        //all Close;
         close();
     }
 

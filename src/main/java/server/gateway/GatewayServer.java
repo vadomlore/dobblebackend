@@ -22,9 +22,6 @@ import java.util.concurrent.*;
 import io.netty.handler.timeout.IdleStateHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import server.ServerBean;
-import server.ServerStatus;
-import server.ServerType;
 
 /**
  * Created by zyl on 2017/7/14.
@@ -32,8 +29,6 @@ import server.ServerType;
 public class GatewayServer {
 
     public static Logger loggger = LoggerFactory.getLogger(GatewayServer.class);
-
-    private ServerBean serverBean;
 
     ChannelManager serverChannelManager = new ChannelManager("channel-group-for-game-server");
 
@@ -58,7 +53,6 @@ public class GatewayServer {
                 () -> {
                     startServerBind();
                 });
-
         gatewayexecutorpool.execute(
                 () -> {
                     startClientListener();
@@ -72,9 +66,6 @@ public class GatewayServer {
         NioEventLoopGroup bossGroup = new NioEventLoopGroup(1);
         NioEventLoopGroup workerGroup = new NioEventLoopGroup(1);
 
-        //fixme: hard code
-        serverBean = new ServerBean(1, ServerType.GateWayServer, "gateway-1",
-                ServerStatus.Inavtive, ip, port);
         try {
             ServerBootstrap b = new ServerBootstrap();
             b.group(bossGroup, workerGroup)
@@ -93,13 +84,9 @@ public class GatewayServer {
                         }
                     });
             ChannelFuture f = b.bind(port).sync();
-            serverBean.setServerStatus(ServerStatus.Active);
-            serverBean.store();
             knownChannelForServer = f.channel();
             f.channel().closeFuture().sync().addListener((e) -> {
                 if (e.isSuccess()) {
-                    serverBean.setServerStatus(ServerStatus.Inavtive);
-                    serverBean.store();
                 }
             });
         } catch (InterruptedException e) {

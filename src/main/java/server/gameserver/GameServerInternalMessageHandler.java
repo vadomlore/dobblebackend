@@ -88,18 +88,18 @@ public class GameServerInternalMessageHandler extends ChannelInboundHandlerAdapt
 
     private void onGatewayServerLostConnection(Channel channel) {
         //TODO process disconnect;
-        gameServer.close();
+        gameServer.doClose();
 
         //是否进行自动重连？
         //run the reconnect connect task thread;
-        //gameServer.runInternalServerListenerTask();
+        //gameServer.tryConnectToGatewayTask();
     }
 
     @Override
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         logger.error("exceptionCaught {}", cause.toString());
         if (ctx != null) {
-            gameServer.close();
+            gameServer.doClose();
             logger.warn("disconnect with gateway server {}", ctx.channel().remoteAddress());
         }
     }
